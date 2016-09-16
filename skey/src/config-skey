@@ -1,0 +1,299 @@
+#!/bin/sh
+# Program: config-skey
+# Author: Gene Schroer
+# Description: A shell script for the skey program.
+
+#test for a c compiler
+
+compiler_chosen=-1
+if [ $# -lt 1 ]; then
+	echo "Usage: ./config-skey [-C arg] INSTPATH"
+	exit 1
+fi
+if [ $1 = -C ] ; then
+	if [$# -lt 2] ; then
+	echo "Error: Too few arguments"
+	exit 1
+	else 
+		echo "main(){}" > tmptest.c
+		if $2 tmptest.c > /dev/null 2>&1 ; then
+			echo "user chose compiler found"
+			MYCC=$2
+			compiler_chosen=1
+		else 
+			echo "not a valid c compiler"
+			exit 1
+		fi
+	fi
+fi
+if [ $compiler_chosen = -1 ] ; then
+	CCLIST="cc gcc /usr/bin/gcc /usr/local/testbin/gcc xlC"
+	MYCC=""
+	echo "main(){}" > tmptest.c
+	for c in $CCLIST ; do
+		# if there is a c compiler like cc or gcc
+		if $c tmptest.c> /dev/null 2>&1 ; then
+			echo 'c compiler found'
+			MYCC=$c
+			break
+		fi
+	done
+fi
+rm -f tmptest.c
+# otherwise print an error msg
+if test -z "$MYCC"; then
+	echo "cannot find any working C compiler"
+	exit 1
+
+	
+fi
+rm -f config.h
+
+# test for the random library
+echo "testing for /usr/bin/ranlib"
+if test -f /usr/bin/ranlib
+then
+	MYRANLIB="/usr/bin/ranlib"
+	echo ranlib 'found'
+else
+	echo ranlib 'not found. Looking in /bin/ranlib'
+	if test -f /bin/ranlib
+	then
+	MYRANLIB="/bin/ranlib"
+	echo ranlib 'found'
+	else
+	echo 'cannot find anything suitable. Exiting'
+	exit -1
+	fi	fi
+
+
+
+#test if I can link w/ libc
+echo '#include<crypt.h>
+main(){char *k = 0; char *s = 0;  crypt(k,s);}' > tmptest.c
+$MYCC tmptest.c > /dev/null 2>&1
+if test $? = 0 ; then
+	echo "crypt(3) function already in libc"
+	echo "#define FXN_CRYPT_IS_LIBC" >> config.h
+		MYLDFLAGS=""
+else
+	if test -f /usr/lib/libcrypt.a
+	then
+		echo "libcrypt.a found"
+		MYLDFLAGS="/usr/lib/libcrypt.a"
+	else 
+		echo "cannot find any crypt function"
+		exit 1
+	fi	
+fi
+rm -f tmptest.c
+
+
+# sets up Makefile 
+rm -f tmpmk
+cp Makefile.tmpl tmpmk
+	
+sed "s|MYCC|$MYCC|" < tmpmk > Makefile2
+mv Makefile2 tmpmk
+
+sed "s|MYLDFLAGS|$MYLDFLAGS|"  < tmpmk > Makefile2
+mv Makefile2 tmpmk 
+
+sed "s|MYRANLIB|$MYRANLIB|" < tmpmk > Makefile2
+mv Makefile2 tmpmk 
+
+#sed "s/@FOO@/$MYFOO/g " < tmpmk >Makefile2
+#mv Makefile2 tmpmk
+
+#sed "s/@BAR@/$MYBAR/g" < tmpmk > Makefile2
+#mv Makefile2 tmpmk
+
+mv tmpmk Makefile
+
+# create the config.h file, and add stdio.h,
+#  which every unix version should have
+#echo "# include <stdio.h> " > config.h
+
+
+#test for little/endian
+echo ' main(){int i = 1; char* j = (char*) &i; if(*j==1) exit(0); else exit( -1); } ' > tmptest.c
+$MYCC -o tmptest  tmptest.c > /dev/null 2>&1 && ./tmptest
+if test $? = 0 ; then
+	echo "System is Little Endian";
+	echo "#define IS_LITTLE_ENDIAN 1" >> config.h;
+else
+	echo "System is Big Endian";
+#	echo "#define BIG_ENDIAN" >> config.h;
+fi
+rm -f tmptest.c tmptest
+
+
+
+
+
+
+
+
+
+# testing for the functions if we have termio or sgtty
+echo "testing for /usr/include/termio.h"
+if test -f /usr/include/termio.h
+then	# system has termio.h
+	echo '# define HAVE_TERMIO 1'>>config.h
+	echo termio.h 'found'
+#	have_termio = 1
+else 
+	echo termio.h 'not found'
+	echo "testing for /usr/include/termios.h"
+	if test -f /usr/include/termios.h
+	then	# system has termios.h
+		echo '# define HAVE_TERMIOS 1'>>config.h
+		echo termios.h ' found'
+	else
+		echo termios.h 'not found'
+		echo "testing for /usr/include/sgtty.h"
+		if test -f /usr/include/sgtty.h
+		then	# system has sgtty.h
+			echo '# define HAVE_SGTTY 1'>>config.h
+			echo sgtty.h 'found' 
+		else	# system has nothing
+			echo sgtty.h 'not found'
+			echo "Nothing was found. Exiting"
+			exit -1 
+		fi
+	fi
+fi
+	
+ 
+ 
+echo "testing for /usr/include/stdlib.h"
+if test -f /usr/include/stdlib.h
+then
+	echo '# define HAVE_STD_LIB 1'>>config.h
+	echo stdlib.h 'found'
+else
+	echo stdlib.h 'not found.Will attempt sys/types'
+	if test -f /usr/include/sys/types.h 
+	then
+	echo '# define HAVE_SYS_TYPES 1'>>config.h
+	echo sys/types.h 'found'
+	else
+	echo 'cannot find anything suitable. Exiting'
+	exit -1
+	fi
+fi
+
+
+
+#Test for string.h or strings.h
+echo "testing for /usr/include/string.h"
+if test -f /usr/include/string.h
+then
+	echo '# define HAVE_STRING 1'>>config.h
+	echo string.h 'found'
+else
+	echo string.h 'not found.Will attempt strings.h'
+	if test -f /usr/include/strings.h 
+	then
+	echo '# define HAVE_STRINGS 1'>>config.h
+	echo stringss.h 'found'
+	else
+	echo 'cannot find anything suitable. Exiting'
+	exit -1
+	fi
+fi
+
+
+# test for unistd
+echo "testing for /usr/include/unistd.h"
+if test -f /usr/include/unistd.h
+then
+	echo '# define HAVE_UNISTD 1'>>config.h
+	echo unistd.h 'found'
+	have_unistd=1
+else
+	echo unistd.h 'not found. '
+	have_unistd=-1
+fi
+
+# test for sys/types
+echo "testing for /usr/include/sys/types.h"
+if test -f /usr/include/sys/types.h
+then
+	echo '# define HAVE_SYS_TYPES 1'>>config.h
+	echo sys/types.h 'found'
+	have_sys_types=1
+else
+	echo sys/types.h 'not found. '
+	have_sys_types=-1
+fi
+# test for grp
+echo "testing for /usr/include/grp.h"
+if test -f /usr/include/grp.h
+then
+	echo '# define HAVE_GRP 1'>>config.h
+	echo grp.h 'found'
+	have_grp=1
+else
+	echo grp.h 'not found. '
+	have_grp=-1
+fi
+
+#test for initgroups
+
+
+echo '#include <unistd.h>
+ int main(){const char s=0; int i=0; initgroups(&s, i); return 0;}' > tmptest.c
+$MYCC tmptest.c -Wall -Werror > /dev/null 2>&1
+if test $? = 0 ; then
+	echo "initgroups is in unistd"
+	echo '#define HAVE_INITGROUPS_IN_UNISTD 1'>> config.h
+else
+	echo '#include<sys/types.h>
+#include<grp.h>
+ int main(){const char s=0; int i=0; initgroups(&s, i); return 0;}' > tmptest.c
+$MYCC tmptest.c -Wall -Werror > /dev/null 2>&1
+if test $? = 0 ; then
+	echo "initgroups is in sys/types and grp"
+	echo '#define HAVE_INITGROUPS_IN_SYS_TYPES_AND_GRP 1'>> config.h
+	fi
+fi	
+rm -f tmptest.c
+
+#test for getenv
+echo '#include <stdlib.h>
+ int main(){const char s=0; getenv(&s); return 0;}' > tmptest.c
+$MYCC tmptest.c -Wall -Werror > /dev/null 2>&1
+if test $? = 0 ; then
+	echo "libc has getenv"
+	echo '#define HAVE_FUNCTION_GETENV 1'>> config.h
+	have_getenv=1
+#else
+	# copy/paste is getenv is somewhere else
+fi
+#test for setenv
+echo '#include <stdlib.h>
+ int main(){const char s=0;const char t=0; int i=0; setenv(&s,&t, i); return 0;}' > tmptest.c
+$MYCC tmptest.c -Wall -Werror > /dev/null 2>&1
+if test $? = 0 ; then
+	echo "libc has setenv"
+	echo '#define HAVE_FUNCTION_SETENV 1'>> config.h
+	have_setenv=1
+#else
+	# copy/paste is getenv is somewhere else
+fi
+	
+#test for environ
+echo '#include <stdlib.h>
+ int main(){int environ=0; return 0;}' > tmptest.c
+$MYCC tmptest.c -Wall -Werror > /dev/null 2>&1
+if test $? != 0 ; then
+	echo "libc has environ"
+	echo '#define HAVE_VARIABLE_EXTERN 1'>> config.h
+	have_variable_extern=1
+#else
+	# copy/paste is getenv is somewhere else
+fi
+
+rm -f tmptest.c
+

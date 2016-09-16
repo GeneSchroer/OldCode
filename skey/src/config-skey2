@@ -1,0 +1,128 @@
+#!/bin/sh
+
+
+#test for a c compiler
+
+
+CCLIST="cc gcc /usr/bin/gcc /usr/local/testbin/gcc xlC"
+MYCC=""
+echo "main(){}" > tmptest.c
+for c in $CCLIST ; do
+	# if there is a c compiler like cc or gcc
+	if $c tmptest.c> /dev/null 2>&1 ; then
+		MYCC=$c
+		break
+	fi
+done
+
+rm -f tmptest.c
+# otherwise print an error msg
+if test -z "$MYCC"; then
+	echo "cannot find any working C compiler"
+	exit 1
+fi
+rm -f config.h
+
+
+
+# create the config.h file, and add stdio.h,
+#  which every unix version should have
+echo "# include <stdio.h> " > config.h
+
+
+
+#test for little/endian
+echo 'int main(){int i = 1; char *j; j = (char*)i; if(*j==0)return 0; else return 1; } ' > tmptest.c
+$MYCC tmptest.c > /dev/null 2>&1
+if test $? = 1 ; then
+	echo "#define LITTLE_ENDIAN" >> config.h
+else
+	echo "#define BIG_ENDIAN" >> config.h
+fi
+
+
+
+#test if I can link w/ libc
+#echo 'main(){(void) crypt(void);}' > tmptest.c
+#$MYCC tmptest.c > /dev/null 2>&1
+#if test $? = 0 ; then
+#	echo "crypt(3) function already libc"
+#	echo "#define FXN_CRYPT_IS_LIBC" >> config.h
+#else
+#
+#	if test -f /usr/lib/libcrypt.a
+#	then
+#		echo "libcrypt.a found"
+#		echo "LDFLAGS= /usr/lib/libcrypt.a">>Makefile 
+#	else 
+#		echo "cannot find any crypt function"
+#		exit 1
+#	fi
+#fi
+#rm -f tmptest.c
+
+
+
+# testing for the functions if we have termio or sgtty
+echo "testing for /usr/include/termio.h"
+if test -f /usr/include/termio.h
+then
+	echo '# define HAVE_TERMIO 1'>>config.h
+	echo termio.h 'found'
+#	have_termio = 1
+else 
+	echo termio.h 'not found'
+	echo "testing for /usr/include/termios.h"
+	if test -f /usr/include/termios.h
+	then
+		echo '# define HAVE_TERMIOS 1'>>config.h
+		echo termios.h ' found'
+	else
+		echo termios.h 'not found'
+		echo "testing for /usr/include/sgtty.h"
+		if test -f /usr/include/sgtty.h
+		then
+			echo '# define HAVE_SGTTY 1'>>config.h
+			echo sgtty.h 'found' 
+		else
+			echo sgtty.h 'not found'
+			echo "Nothing was found. Exiting"
+			exit -1 
+		fi
+	fi
+fi
+	
+ 
+ 
+echo "testing for /usr/include/stdlib.h"
+if test -f /usr/include/stdlib.h
+then
+	echo '# define HAVE_STD_LIB 1'>>config.h
+	echo stdlib.h 'found'
+else
+	echo stdlib.h 'not found.Will attempt sys/types'
+	if test -f /usr/include/sys/types.h 
+	then
+	echo '# define HAVE_SYS_TYPES 1'>>config.h
+	echo sys/types.h 'found'
+	else
+	echo 'cannot find anything suitable. Exiting'
+	exit -1
+	fi
+fi
+
+
+
+echo "testing for /usr/include/unistd.h"
+if test -f /usr/include/unistd.h
+then
+	echo '# define HAVE_UNISTD 1'>>config.h
+	echo unistd.h 'found'
+else
+	echo unistd.h 'not found. '
+	exit -1
+fi
+
+
+
+#rm -f tmptest.c

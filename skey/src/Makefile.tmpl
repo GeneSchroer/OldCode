@@ -1,0 +1,49 @@
+# Makefile.tmpl - S/KEY v1.1b
+#
+# Gene Schroer <gene.schroer@stonybrook.edu>
+
+CC = MYCC
+LDFLAGS = MYLDFLAGS 
+RANLIB = MYRANLIB
+MANDIR  =  /usr/local/man/man8
+DESTDIR =  /usr/local/bin
+
+CFLAGS	=  -g -Wall -Werror
+
+LIB     =  libskey.a
+LIBOBJS =  skeylogin.o skeysubr.o md4.o put.o
+LIBSRCS =  skeylogin.c skeysubr.c md4.c put.c
+
+what:
+	@echo ""
+	@echo "No need to specify what system to compile on!"
+	@echo "(Applaud)"
+	@echo ""
+
+all:	$(LIB) key keyinit keysh done
+
+setuid:
+	chmod u+s keyinit keysh
+
+install:
+	chmod u+s keyinit keysh
+	mv key $(BIN)
+	mv keyinit $(BIN)
+	mv keysh $(BIN)
+
+key:    skey.c
+	$(CC) -o $@ $(CFLAGS) skey.c $(LIB) 
+
+keyinit: skeyinit.c
+	$(CC) -o $@ $(CFLAGS) skeyinit.c $(LIB) $(LDFLAGS)
+
+keysh:  skeysh.c
+	$(CC) -o $@ $(CFLAGS) skeysh.c $(LIB)
+
+$(LIB): $(LIBOBJS)
+	ar -rv $(LIB) $(LIBOBJS)
+	$(RANLIB) $(LIB)
+done:
+	@echo "Make completed."
+clean:
+	rm -f key keyinit keysh *.o libskey.a *.bak *.BAK *.s tags

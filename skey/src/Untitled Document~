@@ -1,0 +1,32 @@
+#include <stdio.h>
+#include <string.h>
+
+int main(int argc, char argv[]){
+char *i;
+	for (j = 1; j<argc;++j)
+	i=argv[j]
+	if strcmp('-', *i) ==0
+	++i;
+	   switch (i)
+    {
+    case 'n':
+      cnt = atoi (optarg);
+      break;
+    case 'p':
+      strcpy (passwd, optarg);
+      pass = 1;
+      break;
+    case 'h':
+      printf(" Skey: Stand-alone program for computing responses to S/Key challenges.\n Options:\n-h: Display help message\n-v: Display version number\n-d: Increase debugging level by 1 (can be selected more than once) ");
+     exit(1);
+     break;
+    case 'v':
+     break;
+    case 'l':
+     break;
+    case 'd':
+     ++debug;
+     break;
+    }
+
+}
